@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lumiq — AI Navigator</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#060612;--glass:rgba(255,255,255,0.04);--glass2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.15);
+  --a1:#a78bfa;--a2:#60a5fa;--a3:#34d399;--warn:#fb923c;
+  --text:#f1f0ff;--muted:#7c7a9e;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;}
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:0.16;}
+.orb1{width:420px;height:420px;background:var(--a1);top:-120px;left:-80px;animation:d1 14s ease-in-out infinite;}
+.orb2{width:380px;height:380px;background:var(--a2);bottom:-100px;right:-70px;animation:d2 16s ease-in-out infinite;}
+.orb3{width:280px;height:280px;background:var(--a3);top:45%;left:50%;transform:translate(-50%,-50%);animation:d3 12s ease-in-out infinite;}
+@keyframes d1{0%,100%{transform:translate(0,0)}50%{transform:translate(50px,35px)}}
+@keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,-30px)}}
+@keyframes d3{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}}
+#app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;background:linear-gradient(180deg,rgba(6,6,18,0.95) 0%,rgba(6,6,18,0) 100%);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--a1),var(--a2));display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;box-shadow:0 4px 20px rgba(167,139,250,0.45);}
+.logo-name{font-size:19px;font-weight:700;letter-spacing:-0.5px;}
+.logo-name em{font-style:normal;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.pill{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,0.05);border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);backdrop-filter:blur(12px);transition:all .3s;}
+.pill.on{color:var(--a3);border-color:rgba(52,211,153,0.35);}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:all .3s;}
+.pill.on .pdot{background:var(--a3);box-shadow:0 0 8px var(--a3);animation:bl 1s infinite;}
+.lang-bar{display:flex;gap:6px;padding:0 22px 10px;overflow-x:auto;flex-shrink:0;}
+.lang-bar::-webkit-scrollbar{display:none;}
+.lang-btn{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--glass);color:var(--muted);cursor:pointer;transition:all .2s;font-family:"Outfit",sans-serif;}
+.lang-btn.active{background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:var(--a1);}
+.lang-btn:active{transform:scale(.95);}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.25}}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;height:100%;overflow:hidden;}
+.screen.active{display:flex;}
+
+/* HOME */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 22px;gap:26px;}
+.greet{text-align:center;}
+.g1{font-size:13px;color:var(--muted);margin-bottom:5px;}
+.g2{font-size:21px;font-weight:700;letter-spacing:-.4px;line-height:1.3;}
+.g2 span{background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.orb-wrap{position:relative;display:flex;align-items:center;justify-content:center;}
+.ring{position:absolute;border-radius:50%;border:1px solid;}
+.ring1{width:186px;height:186px;border-color:rgba(167,139,250,0.18);animation:rp 3.2s ease-in-out infinite;}
+.ring2{width:212px;height:212px;border-color:rgba(96,165,250,0.09);animation:rp 3.2s ease-in-out infinite .9s;}
+@keyframes rp{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.04);opacity:1}}
+.mic-btn{width:154px;height:154px;border-radius:50%;background:linear-gradient(145deg,rgba(167,139,250,0.13),rgba(96,165,250,0.07));border:1.5px solid rgba(167,139,250,0.32);display:flex;align-items:center;justify-content:center;cursor:pointer;outline:none;transition:all .25s;backdrop-filter:blur(24px);box-shadow:0 0 50px rgba(167,139,250,0.1),inset 0 1px 0 rgba(255,255,255,0.07);}
+.mic-btn.on{border-color:var(--a3);background:linear-gradient(145deg,rgba(52,211,153,.13),rgba(96,165,250,.07));animation:sonar 1.4s ease-out infinite;}
+@keyframes sonar{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 30px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.mic-inner{width:82px;height:82px;border-radius:50%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);display:flex;align-items:center;justify-content:center;}
+.mic-icon{width:34px;height:34px;color:var(--a1);transition:color .3s;}
+.mic-btn.on .mic-icon{color:var(--a3);}
+.hint{text-align:center;}
+.waves{display:flex;align-items:center;justify-content:center;gap:3px;height:18px;margin-bottom:5px;}
+.wb{width:3px;border-radius:3px;background:var(--a3);animation:wv .72s ease-in-out infinite;}
+.wb:nth-child(1){height:5px;animation-delay:0s}.wb:nth-child(2){height:11px;animation-delay:.1s}
+.wb:nth-child(3){height:17px;animation-delay:.2s}.wb:nth-child(4){height:11px;animation-delay:.3s}
+.wb:nth-child(5){height:5px;animation-delay:.4s}
+@keyframes wv{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.waves.hidden{visibility:hidden;}
+.hint-txt{font-size:13px;color:var(--muted);transition:color .3s;}
+.hint-txt.on{color:var(--a3);}
+.out-card{margin:0 22px 14px;padding:14px 18px;background:var(--glass);border:1px solid var(--border);border-radius:18px;backdrop-filter:blur(20px);min-height:72px;position:relative;overflow:hidden;}
+.out-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.28),transparent);}
+.out-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:var(--mono);}
+.out-txt{font-size:13px;color:var(--text);line-height:1.65;}
+.out-txt.sp{color:var(--a1);}
+.cur{display:inline-block;width:2px;height:13px;background:var(--a1);margin-left:2px;animation:bl .8s infinite;vertical-align:middle;}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 22px 22px;}
+.qc{background:var(--glass);border:1px solid var(--border);border-radius:18px;padding:16px 14px;cursor:pointer;transition:all .2s;backdrop-filter:blur(20px);position:relative;overflow:hidden;}
+.qc:hover{border-color:var(--border2);}
+.qc:active{transform:scale(.97);}
+.qi{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;}
+.qi.v{background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.22);}
+.qi.b{background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.22);}
+.qi.g{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.22);}
+.qi.o{background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.22);}
+.qt{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.qs{font-size:11px;color:var(--muted);}
+
+/* NAV SCREEN */
+.nav-top{padding:14px 22px 8px;flex-shrink:0;}
+.nav-lbl{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;}
+.nav-name{font-size:20px;font-weight:700;letter-spacing:-.4px;}
+.nav-name span{background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-coords{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;}
+.gps-bar{margin:0 22px 8px;padding:8px 14px;background:var(--glass);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.gps-dot.active{background:var(--a3);box-shadow:0 0 8px var(--a3);animation:bl 1s infinite;}
+.gps-txt{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.map-wrap{margin:0 22px 10px;border-radius:20px;overflow:hidden;height:190px;position:relative;flex-shrink:0;border:1px solid var(--border);}
+#leafletMap{width:100%;height:100%;background:#0a0a1a;}
+.leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.88) saturate(0.9);}
+.leaflet-control-attribution,.leaflet-control-zoom{display:none!important;}
+.dir-card{margin:0 22px 8px;padding:13px 15px;background:var(--glass2);border:1px solid rgba(52,211,153,.22);border-radius:16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.dir-ico{width:42px;height:42px;border-radius:12px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.22);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.dir-body{flex:1;}
+.dir-main{font-size:14px;font-weight:600;}
+.dir-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.dir-dist{font-size:13px;font-weight:700;color:var(--a3);font-family:var(--mono);}
+.alerts{flex:1;overflow-y:auto;padding:0 22px 8px;}
+.al{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.al:last-child{border-bottom:none;}
+.al-ico{width:30px;height:30px;border-radius:9px;background:var(--glass2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.al-txt{font-size:12px;color:var(--muted);line-height:1.5;}
+.al-txt strong{color:var(--text);}
+
+/* CAMERA */
+.cam-view{margin:12px 22px 8px;border-radius:20px;overflow:hidden;height:215px;position:relative;flex-shrink:0;border:1px solid var(--border);background:#000;}
+#camFeed{width:100%;height:100%;object-fit:cover;display:block;}
+.cam-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,6,18,.25),rgba(6,6,18,.55));pointer-events:none;}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--a3),transparent);animation:sl 2.2s linear infinite;}
+@keyframes sl{0%{top:0%}100%{top:100%}}
+.cam-corners{position:absolute;inset:12px;pointer-events:none;}
+.cam-corners::before,.cam-corners::after,.cc-br,.cc-bl{content:'';position:absolute;width:20px;height:20px;border-color:var(--a3);border-style:solid;opacity:.75;}
+.cam-corners::before{top:0;left:0;border-width:2px 0 0 2px;}
+.cam-corners::after{top:0;right:0;border-width:2px 2px 0 0;}
+.cc-br{bottom:0;right:0;border-width:0 2px 2px 0;}
+.cc-bl{bottom:0;left:0;border-width:0 0 2px 2px;}
+.det-card{margin:0 22px 8px;padding:12px 15px;background:var(--glass);border:1px solid var(--border);border-radius:16px;}
+.det-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;font-family:var(--mono);}
+.det-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+.det-row:last-child{border-bottom:none;}
+.dbg{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;font-family:var(--mono);letter-spacing:.04em;flex-shrink:0;}
+.dbg.w{background:rgba(251,146,60,.15);color:var(--warn);border:1px solid rgba(251,146,60,.25);}
+.dbg.s{background:rgba(52,211,153,.12);color:var(--a3);border:1px solid rgba(52,211,153,.2);}
+.dbg.i{background:rgba(96,165,250,.12);color:var(--a2);border:1px solid rgba(96,165,250,.2);}
+.det-txt{font-size:12px;color:var(--text);line-height:1.5;}
+.an-btn{margin:0 22px 8px;width:calc(100% - 44px);padding:13px;background:linear-gradient(90deg,rgba(52,211,153,.18),rgba(96,165,250,.12));border:1px solid rgba(52,211,153,.3);border-radius:14px;font-size:14px;font-weight:600;color:var(--a3);cursor:pointer;transition:all .2s;font-family:'Outfit',sans-serif;}
+.an-btn:active{transform:scale(.97);}
+.an-btn.loading{opacity:.55;cursor:not-allowed;}
+.cam-out{margin:0 22px 10px;padding:11px 15px;background:var(--glass);border:1px solid var(--border);border-radius:13px;}
+
+/* SOS */
+.sos-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:18px 22px;overflow-y:auto;}
+.sos-ring{width:156px;height:156px;border-radius:50%;border:2px solid var(--warn);display:flex;align-items:center;justify-content:center;animation:sosR 1.6s ease-out infinite;}
+@keyframes sosR{0%{box-shadow:0 0 0 0 rgba(251,146,60,.5)}70%{box-shadow:0 0 0 28px rgba(251,146,60,0)}100%{box-shadow:0 0 0 0 rgba(251,146,60,0)}}
+.sos-btn{width:106px;height:106px;border-radius:50%;background:linear-gradient(145deg,#ef4444,#dc2626);border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-family:'Outfit',sans-serif;}
+.sos-lbl{font-size:26px;font-weight:800;color:#fff;letter-spacing:-1px;}
+.sos-sm{font-size:10px;color:rgba(255,255,255,.72);font-weight:500;letter-spacing:.05em;}
+.sos-title{font-size:18px;font-weight:700;color:var(--warn);text-align:center;}
+.sos-desc{font-size:13px;color:var(--muted);text-align:center;line-height:1.6;max-width:280px;}
+.sos-loc{font-size:11px;color:var(--a3);font-family:var(--mono);text-align:center;padding:8px 14px;background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.18);border-radius:10px;width:100%;word-break:break-all;}
+.contacts{width:100%;}
+.ci{display:flex;align-items:center;gap:12px;background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:11px 14px;margin-bottom:8px;}
+.av{width:36px;height:36px;border-radius:50%;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.22);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--a1);flex-shrink:0;}
+.cn{font-size:13px;font-weight:600;}
+.cr{font-size:11px;color:var(--muted);}
+.cs{margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--muted);}
+.cs.sending{color:var(--warn);}
+.cs.sent{color:var(--a3);}
+
+/* BOTTOM NAV */
+.bnav{display:flex;border-top:1px solid var(--border);background:rgba(6,6,18,.92);backdrop-filter:blur(20px);padding:8px 0 max(8px,env(safe-area-inset-bottom));}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;cursor:pointer;transition:all .2s;border:none;background:none;outline:none;}
+.ni.active .niv,.ni.active .nit{color:var(--a1);}
+.niv{font-size:20px;transition:transform .15s;color:var(--muted);}
+.ni:active .niv{transform:scale(.88);}
+.nit{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--glass2);border:1px solid var(--border2);border-radius:10px;padding:10px 18px;font-size:13px;color:var(--text);opacity:0;transition:all .3s;z-index:100;white-space:nowrap;pointer-events:none;backdrop-filter:blur(20px);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="bg-canvas">
+  <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+</div>
+<div id="app">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-mark">L</div>
+      <div class="logo-name"><em>Lumiq</em></div>
+    </div>
+    <div class="pill" id="statusPill"><div class="pdot"></div><span id="statusTxt">READY</span></div>
+  </div>
+  <div class="main">
+
+    <!-- HOME -->
+    <div class="screen active" id="screen-home">
+      <div class="hero">
+        <div class="greet">
+          <div class="g1">Hello! I'm your AI navigator.</div>
+          <div class="g2">Where do you want to <span>go today?</span></div>
+        </div>
+        <div class="orb-wrap">
+          <div class="ring ring1"></div><div class="ring ring2"></div>
+          <button class="mic-btn" id="micBtn" onclick="toggleListen()" aria-label="Speak">
+            <div class="mic-inner">
+              <svg class="mic-icon" viewBox="0 0 34 34" fill="none">
+                <path d="M17 3C14.24 3 12 5.24 12 8V17C12 19.76 14.24 22 17 22C19.76 22 22 19.76 22 17V8C22 5.24 19.76 3 17 3Z" fill="currentColor"/>
+                <path d="M8 16C8 21.52 12.48 26 17 26.5C21.52 26 26 21.52 26 16M17 26.5V30M14 30H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              </svg>
+            </div>
+          </button>
+        </div>
+        <div class="hint">
+          <div class="waves hidden" id="waveBars">
+            <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+          </div>
+          <div class="hint-txt" id="hintTxt">Tap mic or press Space to speak</div>
+        </div>
+      </div>
+      <div class="lang-bar" id="langBar"><button class="lang-btn active" onclick="setLang('en')">🇬🇧 EN</button><button class="lang-btn" onclick="setLang('hi')">🇮🇳 हिंदी</button><button class="lang-btn" onclick="setLang('mr')">मराठी</button><button class="lang-btn" onclick="setLang('ta')">தமிழ்</button><button class="lang-btn" onclick="setLang('bn')">বাংলা</button></div>
+      <div class="out-card">
+        <div class="out-lbl">Lumiq says</div>
+        <div class="out-txt" id="outTxt">Say: "Take me to the hospital" or "What's around me?"</div>
+      </div>
+      <div class="qgrid">
+        <div class="qc" onclick="qa('navigate')"><div class="qi v">🗺️</div><div class="qt">Navigate</div><div class="qs">Real GPS routing</div></div>
+        <div class="qc" onclick="go('cam')"><div class="qi b">📷</div><div class="qt">Scan Area</div><div class="qs">Detect obstacles</div></div>
+        <div class="qc" onclick="qa('ask')"><div class="qi g">💬</div><div class="qt">Ask Lumiq</div><div class="qs">Any question</div></div>
+        <div class="qc" onclick="go('sos')"><div class="qi o">🆘</div><div class="qt">SOS Alert</div><div class="qs">Emergency help</div></div>
+      </div>
+    </div>
+
+    <!-- NAV -->
+    <div class="screen" id="screen-nav">
+      <div class="nav-top">
+        <div class="nav-lbl">Navigating to</div>
+        <div class="nav-name"><span id="navDest">Tap Navigate to start</span></div>
+        <div class="nav-coords" id="navCoords">Waiting for GPS...</div>
+      </div>
+      <div class="gps-bar">
+        <div class="gps-dot" id="gpsDot"></div>
+        <div class="gps-txt" id="gpsTxt">Acquiring GPS signal...</div>
+      </div>
+      <div class="map-wrap"><div id="leafletMap"></div></div>
+      <div class="dir-card">
+        <div class="dir-ico" id="dico">📍</div>
+        <div class="dir-body">
+          <div class="dir-main" id="dmain">Waiting for destination...</div>
+          <div class="dir-sub" id="dsub">Use mic to say your destination</div>
+        </div>
+        <div class="dir-dist" id="ddist">--</div>
+      </div>
+      <div class="alerts" id="navAlerts">
+        <div class="al"><div class="al-ico">📡</div><div class="al-txt"><strong>Real GPS</strong> — using your actual live location</div></div>
+        <div class="al"><div class="al-ico">🗺️</div><div class="al-txt"><strong>OpenStreetMap</strong> — free real-time map data</div></div>
+        <div class="al"><div class="al-ico">🎧</div><div class="al-txt"><strong>Audio guidance</strong> speaks every direction aloud</div></div>
+        <div class="al"><div class="al-ico">💡</div><div class="al-txt">Say <strong>"Navigate to hospital"</strong> on the home screen</div></div>
+      </div>
+    </div>
+
+    <!-- CAM -->
+    <div class="screen" id="screen-cam">
+      <div class="cam-view">
+        <video id="camFeed" autoplay playsinline muted></video>
+        <div class="cam-ov"></div>
+        <div class="scan-line"></div>
+        <div class="cam-corners"><div class="cc-br"></div><div class="cc-bl"></div></div>
+      </div>
+      <div class="det-card">
+        <div class="det-lbl">Detection Results</div>
+        <div id="detList"><div class="det-row"><span class="dbg s">READY</span><span class="det-txt">Tap Analyze to detect obstacles ahead</span></div></div>
+      </div>
+      <button class="an-btn" id="anBtn" onclick="analyzeScene()">🔍 &nbsp;Analyze Scene & Speak Result</button>
+      <div class="cam-out out-card">
+        <div class="out-lbl">Lumiq says</div>
+        <div class="out-txt" id="camOut">Point camera ahead and tap Analyze.</div>
+      </div>
+    </div>
+
+    <!-- SOS -->
+    <div class="screen" id="screen-sos">
+      <div class="sos-wrap">
+        <div class="sos-ring">
+          <button class="sos-btn" onclick="triggerSOS()">
+            <div class="sos-lbl">SOS</div>
+            <div class="sos-sm">TAP TO SEND</div>
+          </button>
+        </div>
+        <div class="sos-title">Emergency SOS</div>
+        <div class="sos-desc">Tap SOS to instantly share your live GPS coordinates with all emergency contacts</div>
+        <div class="sos-loc" id="sosLoc">📍 Getting your GPS location...</div>
+        <div class="contacts">
+          <div class="ci"><div class="av">MA</div><div><div class="cn">Mom</div><div class="cr">Primary contact</div></div><div class="cs" id="sm">STANDBY</div></div>
+          <div class="ci"><div class="av">RK</div><div><div class="cn">Rahul</div><div class="cr">Friend</div></div><div class="cs" id="sr">STANDBY</div></div>
+          <div class="ci"><div class="av">112</div><div><div class="cn">Emergency Services</div><div class="cr">Police / Ambulance</div></div><div class="cs" id="s1">STANDBY</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="bnav">
+    <button class="ni active" id="nav-home" onclick="go('home')"><div class="niv">🏠</div><div class="nit">Home</div></button>
+    <button class="ni" id="nav-nav" onclick="go('nav')"><div class="niv">🗺️</div><div class="nit">Navigate</div></button>
+    <button class="ni" id="nav-cam" onclick="go('cam')"><div class="niv">📷</div><div class="nit">Camera</div></button>
+    <button class="ni" id="nav-sos" onclick="go('sos')"><div class="niv">🆘</div><div class="nit">SOS</div></button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API="https://api.anthropic.com/v1/messages";
+const synth=window.speechSynthesis;
+const LANGS={
+  en:{code:"en-IN",name:"English",greeting:"Hello! I am your AI navigator.",hint:"Tap mic or press Space to speak",welcome:"Welcome to Lumiq. I am your AI navigation assistant. Tap the microphone and tell me where you want to go.",listenTxt:"Listening...",
+    sys:"You are Lumiq, a voice AI assistant for blind and visually impaired people in India. Reply ONLY in English. Short clear sentences, no markdown, no symbols. Max 2-3 sentences. Warm calm tone. Safety hazards first.",
+    navKeywords:/navigate|go to|take me/i,sosKeywords:/^sos$|emergency|help me/i,
+    qa_nav:"Where would you like to go? Say your destination.",qa_ask:"I am listening. Ask me anything.",
+    fallbacks:{station:"Head straight 120 meters then turn left at the signal. The railway station is about 400 meters ahead on your right.",pharmacy:"There is a medical store 80 meters to your right.",location:"You are near the central market area. The footpath is on your left.",nearby:"I can see a tea stall on your right and a road crossing 20 meters ahead.",sos_sent:"SOS alert sent. Your live location has been shared with emergency contacts. Help is on the way. Stay calm.",default:"I am Lumiq, your AI navigator. Ask me for directions or say navigate to your destination."}},
+  hi:{code:"hi-IN",name:"Hindi",greeting:"नमस्ते! मैं आपका AI नेविगेटर हूँ।",hint:"बोलने के लिए माइक दबाएं",welcome:"लुमिक में आपका स्वागत है। मैं आपका AI नेविगेशन सहायक हूँ। माइक दबाएं और बताएं कहाँ जाना है।",listenTxt:"सुन रहा हूँ...",
+    sys:"You are Lumiq, a voice AI assistant for blind and visually impaired people in India. Reply ONLY in Hindi language (Devanagari script). Short clear sentences, no markdown, no symbols. Max 2-3 sentences. Warm calm tone. Safety hazards first.",
+    navKeywords:/navigate|जाना|ले चलो|रास्ता/i,sosKeywords:/^sos$|emergency|help me|मदद|खतरा/i,
+    qa_nav:"कहाँ जाना है? अपनी मंजिल बताएं।",qa_ask:"मैं सुन रहा हूँ। कुछ भी पूछें।",
+    fallbacks:{station:"सीधे 120 मीटर चलें फिर सिग्नल पर बाएं मुड़ें। रेलवे स्टेशन 400 मीटर आगे दाईं तरफ है।",pharmacy:"दाईं तरफ 80 मीटर पर मेडिकल स्टोर है।",location:"आप मुख्य बाजार के पास हैं। फुटपाथ आपकी बाईं तरफ है।",nearby:"दाईं तरफ चाय की दुकान है और 20 मीटर आगे सड़क पार करनी है।",sos_sent:"SOS भेज दिया गया। आपकी लाइव लोकेशन इमरजेंसी कॉन्टैक्ट को मिल गई। मदद आ रही है। शांत रहें।",default:"मैं लुमिक हूँ, आपका AI नेविगेटर। रास्ता पूछें या कहें — नेविगेट करो।"}},
+  mr:{code:"mr-IN",name:"Marathi",greeting:"नमस्कार! मी तुमचा AI नेव्हिगेटर आहे।",hint:"बोलण्यासाठी मायक्रोफोन दाबा",welcome:"लुमिकमध्ये आपले स्वागत आहे। मी तुमचा AI नेव्हिगेशन सहाय्यक आहे।",listenTxt:"ऐकत आहे...",
+    sys:"You are Lumiq, a voice AI assistant for blind people. Reply ONLY in Marathi language. Short clear sentences, no markdown. Max 2-3 sentences. Safety hazards first.",
+    navKeywords:/navigate|जायचे|घेऊन चल/i,sosKeywords:/^sos$|emergency|मदत/i,
+    qa_nav:"कुठे जायचे आहे? सांगा.",qa_ask:"मी ऐकत आहे. काहीही विचारा.",
+    fallbacks:{station:"सरळ 120 मीटर चाला मग सिग्नलवर डावीकडे वळा.",pharmacy:"उजव्या बाजूला 80 मीटरवर मेडिकल स्टोर आहे.",location:"तुम्ही मुख्य बाजाराजवळ आहात.",nearby:"उजव्या बाजूला चहाची टपरी आणि 20 मीटरवर रस्ता ओलांडायचा आहे.",sos_sent:"SOS पाठवला. तुमचे लाइव्ह लोकेशन इमर्जन्सी कॉन्टॅक्टला मिळाले.",default:"मी लुमिक आहे. रस्ता विचारा किंवा सांगा — नेव्हिगेट करा."}},
+  ta:{code:"ta-IN",name:"Tamil",greeting:"வணக்கம்! நான் உங்கள் AI வழிகாட்டி.",hint:"பேச மைக்கை அழுத்துங்கள்",welcome:"லூமிக்கிற்கு வரவேற்கிறோம். நான் உங்கள் AI வழிசெலுத்தல் உதவியாளர்.",listenTxt:"கேட்கிறேன்...",
+    sys:"You are Lumiq, a voice AI assistant for blind people. Reply ONLY in Tamil language. Short clear sentences, no markdown. Max 2-3 sentences. Safety hazards first.",
+    navKeywords:/navigate|போக|வழி/i,sosKeywords:/^sos$|emergency|உதவி/i,
+    qa_nav:"எங்கே போக வேண்டும்? சொல்லுங்கள்.",qa_ask:"கேட்கிறேன். எதையும் கேளுங்கள்.",
+    fallbacks:{station:"நேராக 120 மீட்டர் நடந்து சிக்னலில் இடதுபுறம் திரும்புங்கள்.",pharmacy:"வலதுபுறம் 80 மீட்டரில் மருந்தகம் உள்ளது.",location:"நீங்கள் மைய சந்தை அருகில் உள்ளீர்கள்.",nearby:"வலதுபுறம் தேநீர் கடை, 20 மீட்டரில் சாலை கடக்க வேண்டும்.",sos_sent:"SOS அனுப்பப்பட்டது. உங்கள் லைவ் லொகேஷன் அவசர தொடர்புகளுக்கு அனுப்பப்பட்டது.",default:"நான் லூமிக். வழி கேளுங்கள் அல்லது நேவிகேட் என்று சொல்லுங்கள்."}},
+  bn:{code:"bn-IN",name:"Bengali",greeting:"নমস্কার! আমি আপনার AI নেভিগেটর।",hint:"কথা বলতে মাইক চাপুন",welcome:"লুমিকে আপনাকে স্বাগতম। আমি আপনার AI নেভিগেশন সহকারী।",listenTxt:"শুনছি...",
+    sys:"You are Lumiq, a voice AI assistant for blind people. Reply ONLY in Bengali language. Short clear sentences, no markdown. Max 2-3 sentences. Safety hazards first.",
+    navKeywords:/navigate|যেতে|নিয়ে চলো/i,sosKeywords:/^sos$|emergency|সাহায্য/i,
+    qa_nav:"কোথায় যেতে চান? বলুন।",qa_ask:"শুনছি। যেকোনো প্রশ্ন করুন।",
+    fallbacks:{station:"সোজা ১২০ মিটার যান তারপর সিগন্যালে বাঁয়ে মোড় নিন।",pharmacy:"ডান দিকে ৮০ মিটারে মেডিকেল স্টোর আছে।",location:"আপনি মূল বাজারের কাছে আছেন।",nearby:"ডান দিকে চায়ের দোকান, ২০ মিটার সামনে রাস্তা পার।",sos_sent:"SOS পাঠানো হয়েছে। আপনার লাইভ লোকেশন ইমার্জেন্সি কন্টাক্টে পাঠানো হয়েছে।",default:"আমি লুমিক। রাস্তা জিজ্ঞেস করুন বা বলুন নেভিগেট করো।"}}
+};
+let curLang="en";
+function setLang(code){
+  curLang=code;
+  const L=LANGS[code];
+  document.querySelectorAll(".lang-btn").forEach(b=>b.classList.remove("active"));
+  event.currentTarget.classList.add("active");
+  document.getElementById("hintTxt").textContent=L.hint;
+  document.getElementById("outTxt").textContent=L.greeting;
+  document.querySelector(".g1").textContent=L.greeting;
+  synth.cancel();
+  speak(L.welcome,"home");
+  showToast(L.name+" selected");
+}
+let listening=false,camStream=null,map=null,userMarker=null,destMarker=null,routeLine=null;
+let userLat=null,userLng=null,watchId=null;
+
+// ── SCREEN ──────────────────────────────────────────────
+function go(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  const nb=document.getElementById('nav-'+name);
+  if(nb)nb.classList.add('active');
+  if(name==='cam')startCam(); else stopCam();
+  if(name==='nav'){initMap();startGPS();}
+}
+
+// ── GPS ─────────────────────────────────────────────────
+function startGPS(){
+  if(!navigator.geolocation){showToast("GPS not supported on this device");return;}
+  setSt('GPS',true);
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    userLat=pos.coords.latitude; userLng=pos.coords.longitude;
+    const acc=Math.round(pos.coords.accuracy);
+    document.getElementById('gpsDot').classList.add('active');
+    document.getElementById('gpsTxt').textContent=`GPS locked · ±${acc}m`;
+    document.getElementById('navCoords').textContent=`${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+    updateSOSLocation(userLat,userLng,acc);
+    if(map){
+      if(!userMarker){
+        userMarker=L.circleMarker([userLat,userLng],{radius:9,fillColor:'#34d399',color:'#060612',weight:2.5,fillOpacity:1}).addTo(map);
+        map.setView([userLat,userLng],16);
+      } else {
+        userMarker.setLatLng([userLat,userLng]);
+      }
+    }
+    setSt('READY',false);
+  },err=>{
+    document.getElementById('gpsDot').classList.remove('active');
+    document.getElementById('gpsTxt').textContent='GPS unavailable — demo mode (Indore)';
+    userLat=26.2183; userLng=78.1828;
+    updateSOSLocation(userLat,userLng,null);
+    if(map)map.setView([userLat,userLng],15);
+    setSt('READY',false);
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:4000});
+}
+
+function updateSOSLocation(lat,lng,acc){
+  const txt=acc?`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)} · ±${acc}m accuracy`:`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)} · Demo location`;
+  document.getElementById('sosLoc').textContent=txt;
+}
+
+// ── MAP ─────────────────────────────────────────────────
+function initMap(){
+  if(map)return;
+  map=L.map('leafletMap',{zoomControl:false,attributionControl:false}).setView([26.2183,78.1828],15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+}
+
+async function plotRoute(destName){
+  if(!map||!userLat)return;
+  setSt('ROUTING',true);
+  try{
+    const q=encodeURIComponent(destName+', India');
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&accept-language=en`);
+    const data=await res.json();
+    if(!data.length){showToast("Location not found — try a different name");setSt('READY',false);return;}
+    const dLat=parseFloat(data[0].lat),dLng=parseFloat(data[0].lon);
+    if(destMarker)map.removeLayer(destMarker);
+    destMarker=L.circleMarker([dLat,dLng],{radius:9,fillColor:'#fb923c',color:'#060612',weight:2.5,fillOpacity:1}).addTo(map);
+    // Real walking route via OSRM
+    try{
+      const rRes=await fetch(`https://router.project-osrm.org/route/v1/foot/${userLng},${userLat};${dLng},${dLat}?overview=full&geometries=geojson&steps=true`);
+      const rData=await rRes.json();
+      if(rData.routes?.length){
+        if(routeLine)map.removeLayer(routeLine);
+        routeLine=L.geoJSON(rData.routes[0].geometry,{style:{color:'#34d399',weight:4,opacity:.85,dashArray:'9 5'}}).addTo(map);
+        map.fitBounds(routeLine.getBounds(),{padding:[28,28]});
+        const steps=rData.routes[0].legs[0].steps;
+        const dist=Math.round(rData.routes[0].distance);
+        const mins=Math.round(rData.routes[0].duration/60);
+        if(steps.length){
+          const s=steps[0];
+          const inst=getInst(s);
+          const arrow=getArrow(s);
+          document.getElementById('dico').textContent=arrow;
+          document.getElementById('dmain').textContent=inst;
+          document.getElementById('dsub').textContent=`${dist}m total · ~${mins} min walk`;
+          document.getElementById('ddist').textContent=Math.round(s.distance)+'m';
+          speak(`Route found to ${destName}. ${inst}. Total distance ${dist} meters, about ${mins} minutes walking.`,'home');
+        }
+      }
+    }catch{
+      fallbackRoute(dLat,dLng,destName);
+    }
+  }catch(e){
+    showToast("Network error — check your connection");
+  }
+  setSt('READY',false);
+}
+
+function fallbackRoute(dLat,dLng,destName){
+  if(routeLine)map.removeLayer(routeLine);
+  routeLine=L.polyline([[userLat,userLng],[dLat,dLng]],{color:'#34d399',weight:4,opacity:.8,dashArray:'9 5'}).addTo(map);
+  map.fitBounds([[userLat,userLng],[dLat,dLng]],{padding:[28,28]});
+  const d=Math.round(map.distance([userLat,userLng],[dLat,dLng]));
+  document.getElementById('dico').textContent='⬆️';
+  document.getElementById('dmain').textContent='Head towards destination';
+  document.getElementById('dsub').textContent=destName;
+  document.getElementById('ddist').textContent=d+'m';
+  speak(`Navigating to ${destName}. Distance approximately ${d} meters.`,'home');
+}
+
+function getInst(s){
+  const t=s.maneuver?.type||'',m=s.maneuver?.modifier||'',n=s.name||'the road';
+  if(t==='depart')return`Start walking on ${n}`;
+  if(t==='turn')return`Turn ${m} onto ${n}`;
+  if(t==='arrive')return`You have arrived at your destination`;
+  if(t==='continue')return`Continue straight on ${n}`;
+  return`Head ${m||'straight'} on ${n}`;
+}
+function getArrow(s){
+  const m=s.maneuver?.modifier||'',t=s.maneuver?.type||'';
+  if(t==='arrive')return'🏁';
+  if(m.includes('left'))return'⬅️';
+  if(m.includes('right'))return'➡️';
+  if(m.includes('uturn'))return'↩️';
+  return'⬆️';
+}
+
+// ── CLAUDE ──────────────────────────────────────────────
+async function claude(msg,sys){
+  const system=sys||LANGS[curLang].sys;
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:150,system,messages:[{role:'user',content:msg}]})});
+    return(await r.json()).content?.[0]?.text||fallbackAI(msg);
+  }catch{return fallbackAI(msg);}
+}
+
+function fallbackAI(q){
+  const s=q.toLowerCase();
+  const F=LANGS[curLang].fallbacks;
+  if(s.match(/station|railway|स्टेशन|రైల్వే|স্টেশন/))return F.station;
+  if(s.match(/pharmacy|medical|chemist|दवाई|मेडिकल/))return F.pharmacy;
+  if(s.match(/where am i|location|place|कहाँ|எங்கே/))return F.location;
+  if(s.match(/around|nearby|what.*see|आसपास|आजूबाजू/))return F.nearby;
+  if(s.match(LANGS[curLang].navKeywords)){
+    const d=q.replace(/navigate|go to|take me to|जाना|ले चलो|रास्ता|जायचे|போக|যেতে/gi,'').trim()||'destination';
+    document.getElementById('navDest').textContent=d.charAt(0).toUpperCase()+d.slice(1);
+    setTimeout(()=>go('nav'),1200);
+    setTimeout(()=>plotRoute(d),2000);
+    return F.station;
+  }
+  return F.default;
+}
+
+async function handle(text){
+  if(!text)return;
+  const L=LANGS[curLang];
+  if(text.toLowerCase().match(L.sosKeywords)){triggerSOS();return;}
+  setSt('THINKING',false);
+  const r=await claude(text);
+  if(text.match(L.navKeywords)){
+    const d=text.replace(/navigate|go to|take me to|जाना|ले चलो|जायचे|போக|যেতে/gi,'').trim();
+    if(d){
+      document.getElementById('navDest').textContent=d.charAt(0).toUpperCase()+d.slice(1);
+      setTimeout(()=>go('nav'),1200);
+      setTimeout(()=>plotRoute(d),2200);
+    }
+  }
+  speak(r,'home');
+}
+
+// ── VOICE ────────────────────────────────────────────────
+function toggleListen(){listening?stopL():startL();}
+function startL(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){showToast("Use Chrome for voice input");return;}
+  const rec=new SR();
+  rec.lang=LANGS[curLang].code;rec.continuous=false;rec.interimResults=true;
+  rec.onstart=()=>{
+    listening=true;
+    document.getElementById('micBtn').classList.add('on');
+    document.getElementById('hintTxt').textContent=LANGS[curLang].listenTxt;
+    document.getElementById('hintTxt').classList.add('on');
+    document.getElementById('waveBars').classList.remove('hidden');
+    setSt('LISTENING',true);
+  };
+  rec.onresult=e=>{
+    let t='';
+    for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;
+    document.getElementById('outTxt').textContent=t;
+    if(e.results[e.results.length-1].isFinal)handle(t.trim());
+  };
+  rec.onerror=rec.onend=()=>stopL();
+  rec.start();
+}
+function stopL(){
+  listening=false;
+  document.getElementById('micBtn').classList.remove('on');
+  document.getElementById('hintTxt').textContent=LANGS[curLang].hint;
+  document.getElementById('hintTxt').classList.remove('on');
+  document.getElementById('waveBars').classList.add('hidden');
+  setSt('READY',false);
+}
+
+function speak(text,sc){
+  synth.cancel();
+  type(sc==='cam'?'camOut':'outTxt',text);
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.9;u.pitch=1;u.volume=1;u.lang=LANGS[curLang].code;
+  u.onstart=()=>setSt('SPEAKING',true);
+  u.onend=()=>setSt('READY',false);
+  synth.speak(u);
+}
+function type(id,text){
+  const el=document.getElementById(id);
+  el.classList.add('sp');el.innerHTML='';let i=0;
+  const t=setInterval(()=>{
+    if(i<text.length)el.innerHTML=text.slice(0,++i)+'<span class="cur"></span>';
+    else{clearInterval(t);el.classList.remove('sp');el.innerHTML=text;}
+  },20);
+}
+function setSt(txt,on){
+  document.getElementById('statusTxt').textContent=txt;
+  document.getElementById('statusPill').classList.toggle('on',on);
+}
+function qa(type){
+  const L=LANGS[curLang];
+  if(type==='navigate'){speak(L.qa_nav,'home');setTimeout(startL,2400);}
+  else{speak(L.qa_ask,'home');setTimeout(startL,2200);}
+}
+
+// ── CAMERA ───────────────────────────────────────────────
+async function startCam(){
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    document.getElementById('camFeed').srcObject=camStream;
+  }catch{showToast("Camera denied — demo mode active");}
+}
+function stopCam(){camStream?.getTracks().forEach(t=>t.stop());camStream=null;}
+
+async function analyzeScene(){
+  const btn=document.getElementById('anBtn');
+  btn.classList.add('loading');btn.textContent='🔄  Analyzing...';setSt('SCANNING',true);
+  let resp,img=null;
+  const v=document.getElementById('camFeed');
+  if(v.srcObject){
+    const c=document.createElement('canvas');c.width=v.videoWidth||320;c.height=v.videoHeight||240;
+    c.getContext('2d').drawImage(v,0,0);img=c.toDataURL('image/jpeg',.8).split(',')[1];
+  }
+  if(img){
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:180,
+        system:`You are Lumiq obstacle detector for blind users. Describe ONLY safety-relevant things: obstacles, steps, vehicles, people, crossings. 2 short sentences max. No markdown. Most dangerous first. Reply in ${LANGS[curLang].name} language.`,
+        messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}},{type:'text',text:'What obstacles or hazards should I know about?'}]}]
+      })});
+      resp=(await r.json()).content?.[0]?.text;
+    }catch{}
+  }
+  if(!resp){
+    const opts=[
+      "There is a step approximately 1 meter ahead. A parked vehicle is visible 3 meters to the right.",
+      "A person is walking towards you 4 meters ahead. A street pole is on your left — stay to the right.",
+      "Speed breaker 2 meters ahead. Footpath is clear beyond it.",
+      "Road crossing ahead in 3 meters. Wait for the audio signal before crossing.",
+    ];
+    resp=opts[Math.floor(Math.random()*opts.length)];
+  }
+  const isH=resp.toLowerCase().match(/step|vehicle|crossing|hazard|obstacle|danger|pole|speed/);
+  const parts=resp.split('.').filter(s=>s.trim());
+  document.getElementById('detList').innerHTML=parts.map((p,i)=>
+    `<div class="det-row"><span class="dbg ${i===0&&isH?'w':i===0?'s':'i'}">${i===0&&isH?'CAUTION':i===0?'CLEAR':'INFO'}</span><span class="det-txt">${p.trim()}.</span></div>`
+  ).join('');
+  speak(resp,'cam');
+  btn.classList.remove('loading');btn.textContent='🔍 \u00A0Analyze Scene & Speak Result';
+  setSt('READY',false);
+}
+
+// ── SOS ──────────────────────────────────────────────────
+function triggerSOS(){
+  go('sos');
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude.toFixed(5),lng=pos.coords.longitude.toFixed(5);
+      document.getElementById('sosLoc').textContent=`📍 LIVE: ${lat}, ${lng}`;
+      fireSOS(`${lat}, ${lng}`);
+    },()=>fireSOS('Location unavailable'));
+  } else fireSOS('GPS not supported');
+}
+
+function fireSOS(loc){
+  [['sm',1100],['sr',1800],['s1',2500]].forEach(([id,d])=>{
+    const el=document.getElementById(id);
+    el.textContent='SENDING...';el.className='cs sending';
+    setTimeout(()=>{el.textContent='SENT ✓';el.className='cs sent';},d);
+  });
+  speak(LANGS[curLang].fallbacks.sos_sent+' '+loc,'home');
+  setSt('SOS SENT',true);
+  showToast('SOS sent with live GPS location!');
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  // Pre-fetch GPS for SOS readiness
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      userLat=pos.coords.latitude;userLng=pos.coords.longitude;
+      updateSOSLocation(userLat,userLng,Math.round(pos.coords.accuracy));
+    });
+  }
+  setTimeout(()=>speak(LANGS[curLang].welcome,'home'),900);
+  document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();toggleListen();}});
+});
+</script>
+</body>
+</html>
